@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FW_DIR="$ROOT/firmware"
+COMPOSE="docker compose -f $ROOT/docker-compose.yml"
+
+usage() {
+  cat <<EOF
+uso: bixo <comando> [args]
+
+agent up                          sobe o micro-ROS agent (docker, UDP4:8888, host network)
+agent down                        derruba o agent
+agent logs                        segue os logs do agent
+
+fw build                          compila o firmware (platformio)
+fw flash [porta]                  compila e grava no ESP32-C3
+fw monitor [porta]                abre serial monitor
+fw run [porta]                    flash + monitor
+
+wifi <ssid> <pass> <agent_ip> [porta=8888]
+                                   gera firmware/src/secrets.h
+
+ip                                lista IPs do host (usar um deles como agent_ip)
+EOF
+}
+
+cmd_agent_up() { $COMPOSE up -d; }
+cmd_agent_down() { $COMPOSE down; }
+cmd_agent_logs() { $COMPOSE logs -f; }
+
+cmd_fw_build() { (cd "$FW_DIR" && pio run); }
+
+cmd_fw_flash() {
+  local port="${1:-}"
+  if [[ -n "$port" ]]; then
+    (cd "$FW_DIR" && pio run -t upload --upload-port "$port")
+  else
+    (cd "$FW_DIR" && pio run -t upload)
+  fi
+}
+
+cmd_fw_monitor() {
+  local port="${1:-}"
+  if [[ -n "$port" ]]; then
+    (cd "$FW_DIR" && pio device monitor -p "$port")
+  else
+    (cd "$FW_DIR" && pio device monitor)
+  fi
+}
+
+cmd_fw_run() {
+  cmd_fw_flash "${1:-}"
+  cmd_fw_monitor "${1:-}"
+}
+
+cmd_wifi() {
+  local ssid="${1:?ssid obrigatorio}" pass="${2:?senha obrigatoria}" ip="${3:?ip do agent obrigatorio}" port="${4:-8888}"
+  cat >"$FW_DIR/src/secrets.h" <<EOF
+#pragma once
+
+#define WIFI_SSID "$ssid"
+#define WIFI_PASS "$pass"
+#define AGENT_IP "$ip"
+#define AGENT_PORT $port
+EOF
+  echo "secrets.h gerado em $FW_DIR/src/secrets.h"
+}
+
+cmd_ip() {
+  ip -4 -o addr show scope global | awk '{print $2, $4}'
+}
+
+case "${1:-}" in
+agent)
+  case "${2:-}" in
+  up) cmd_agent_up ;;
+  down) cmd_agent_down ;;
+  logs) cmd_agent_logs ;;
+  *) usage; exit 1 ;;
+  esac
+  ;;
+fw)
+  case "${2:-}" in
+  build) cmd_fw_build ;;
+  flash) cmd_fw_flash "${3:-}" ;;
+  monitor) cmd_fw_monitor "${3:-}" ;;
+  run) cmd_fw_run "${3:-}" ;;
+  *) usage; exit 1 ;;
+  esac
+  ;;
+wifi)
+  shift
+  cmd_wifi "$@"
+  ;;
+ip) cmd_ip ;;
+*)
+  usage
+  exit 1
+  ;;
+esac
