@@ -1,0 +1,7 @@
+services:
+  microros-agent:
+    image: microros/micro-ros-agent:humble
+    container_name: bixo_microros_agent
+    network_mode: host
+    command: udp4 --port 8888 -v6
+    restart: unless-stopped
