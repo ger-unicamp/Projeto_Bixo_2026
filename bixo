@@ -21,8 +21,16 @@ fw run [porta]                    flash + monitor
 wifi <ssid> <pass> <agent_ip> [porta=8888]
                                    gera firmware/src/secrets.h
 
+cmd vel <v> [w=0]                 manda velocidade linear v (m/s) e angular w (rad/s)
+cmd goal <x> <y>                  manda coordenada-alvo (m), robo na origem virado p/ +Y
+cmd stop                          manda vel 0 0 (para o robo)
+
 ip                                lista IPs do host (usar um deles como agent_ip)
 EOF
+}
+
+_num() {
+  [[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || { echo "erro: '$1' nao e um numero" >&2; exit 1; }
 }
 
 cmd_agent_up() { $COMPOSE up -d; }
@@ -71,6 +79,22 @@ cmd_ip() {
   ip -4 -o addr show scope global | awk '{print $2, $4}'
 }
 
+cmd_cmd_vel() {
+  local v="${1:?linear.x obrigatorio (m/s)}" w="${2:-0}"
+  _num "$v"; _num "$w"
+  $COMPOSE exec -T ros2-cli ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist \
+    "{linear: {x: $v}, angular: {z: $w}}"
+}
+
+cmd_cmd_goal() {
+  local x="${1:?x obrigatorio (m)}" y="${2:?y obrigatorio (m)}"
+  _num "$x"; _num "$y"
+  $COMPOSE exec -T ros2-cli ros2 topic pub --once /bixo/goal geometry_msgs/msg/Point \
+    "{x: $x, y: $y}"
+}
+
+cmd_cmd_stop() { cmd_cmd_vel 0 0; }
+
 case "${1:-}" in
 agent)
   case "${2:-}" in
@@ -92,6 +116,14 @@ fw)
 wifi)
   shift
   cmd_wifi "$@"
+  ;;
+cmd)
+  case "${2:-}" in
+  vel) cmd_cmd_vel "${3:-}" "${4:-}" ;;
+  goal) cmd_cmd_goal "${3:-}" "${4:-}" ;;
+  stop) cmd_cmd_stop ;;
+  *) usage; exit 1 ;;
+  esac
   ;;
 ip) cmd_ip ;;
 *)

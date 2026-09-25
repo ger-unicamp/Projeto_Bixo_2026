@@ -5,3 +5,10 @@ services:
     network_mode: host
     command: udp4 --port 8888 -v6
     restart: unless-stopped
+
+  ros2-cli:
+    image: ros:humble-ros-base
+    container_name: bixo_ros2_cli
+    network_mode: host
+    command: sleep infinity
+    restart: unless-stopped

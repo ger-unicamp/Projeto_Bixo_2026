@@ -25,17 +25,22 @@ O firmware fica em [`firmware/`](firmware/) (projeto PlatformIO); tudo é contro
 
 O comando `./bixo wifi` gera `firmware/src/secrets.h` (fora do git, veja `firmware/src/secrets.h.example`) com as credenciais de WiFi e o IP/porta do agent. A placa precisa entrar na mesma rede WiFi do PC e falar UDP com o agent na porta 8888.
 
-## Tópicos ROS 2 do firmware
+`./bixo agent up` também sobe um container `ros2-cli` (mesma rede do agent) só pra rodar comandos ROS 2 sem precisar instalar ROS no host.
 
-- assina `cmd_vel` (`geometry_msgs/Twist`) — `linear.x` (m/s) e `angular.z` (rad/s) do centro do robô, convertidos em velocidade angular de cada roda (cinemática diferencial).
-- assina `bixo/goal` (`geometry_msgs/Point`) — coordenada-alvo `(x, y)` no referencial do robô (robô na origem, virado para o eixo Y positivo); um controlador proporcional simples calcula `(v, w)` até o alvo e reaproveita a mesma conversão para roda.
+## Mandando comandos pro robô
 
-Testar do lado ROS 2 (fora do container, com ROS 2 humble instalado, ou `docker exec` num container com ros2):
+Não precisa saber `ros2 topic pub` nem os nomes dos tópicos — usa o `./bixo`:
 
 ```
-ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}, angular: {z: 0.0}}"
-ros2 topic pub /bixo/goal geometry_msgs/msg/Point "{x: 0.2, y: 1.0}" --once
+./bixo cmd vel 0.1 0.0     # linear.x=0.1 m/s, angular.z=0.0 rad/s
+./bixo cmd goal 0.2 1.0    # vai até (x=0.2, y=1.0) no referencial do robô
+./bixo cmd stop            # equivale a `cmd vel 0 0`
 ```
+
+- `cmd vel <v> [w]` publica em `cmd_vel` (`geometry_msgs/Twist`) — `linear.x` (m/s) e `angular.z` (rad/s) do centro do robô, convertidos em velocidade angular de cada roda (cinemática diferencial).
+- `cmd goal <x> <y>` publica em `bixo/goal` (`geometry_msgs/Point`) — coordenada-alvo `(x, y)` no referencial do robô (robô na origem, virado para o eixo Y positivo); um controlador proporcional simples calcula `(v, w)` até o alvo e reaproveita a mesma conversão para roda.
+
+Modo avançado (direto por trás do `./bixo cmd`, útil pra depurar): `docker compose exec ros2-cli ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}, angular: {z: 0.0}}"`.
 
 ---
 
