@@ -204,8 +204,10 @@ void setup() {
   // ==========================================
   // Credenciais de wifi/agent ficam fora do repo: gere firmware/src/secrets.h com `./bixo wifi ...`
   // (veja firmware/src/secrets.h.example e o README).
+  IPAddress agent_ip;
+  agent_ip.fromString(AGENT_IP);
   set_microros_wifi_transports((char *)WIFI_SSID, (char *)WIFI_PASS,
-                                (char *)AGENT_IP, AGENT_PORT);
+                                agent_ip, AGENT_PORT);
   WiFi.setSleep(false); // evita "could not send data: 12" (ENOMEM) por modem-sleep
   delay(2000);
 
